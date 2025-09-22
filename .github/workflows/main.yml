@@ -1,14 +1,25 @@
-name: Build Tuto
-on: { push: { branches: [ main, master ] }, pull_request: { branches: [ main, master ] }, workflow_dispatch: {} }
+name: Build Tuto (Java 8)
+
+on:
+  push: { branches: [ main, master ] }
+  pull_request: { branches: [ main, master ] }
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17', cache: maven }
-      - name: Build
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+      - name: Build (cd tuto)
+        working-directory: ./tuto
         run: mvn -q -DskipTests clean package
       - name: Upload JAR
         uses: actions/upload-artifact@v4
-        with: { name: tuto-jar, path: tuto/target/*.jar }
+        with:
+          name: tuto-jar
+          path: tuto/target/*.jar

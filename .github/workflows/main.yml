@@ -18,16 +18,20 @@ jobs:
           java-version: '8'
           cache: maven
 
-      # 리포 안에서 pom.xml 위치 자동 탐색
+      # ✅ 루트/서브 둘 다에서 pom.xml 탐색 (target 폴더 제외)
       - name: Find pom.xml
         id: findpom
         shell: bash
         run: |
           set -e
-          POM=$(git ls-files | grep -E '/pom\.xml$' | head -n1 || true)
+          if [ -f "pom.xml" ]; then
+            POM="pom.xml"
+          else
+            POM="$(find . -type f -name pom.xml -not -path '*/target/*' | head -n1 || true)"
+          fi
           if [ -z "$POM" ]; then
-            echo "No pom.xml found in repo." >&2
-            echo "리포 구조를 확인하세요. 예: tuto/pom.xml 또는 tuto-1.0.4/tuto/pom.xml" >&2
+            echo "::error::No pom.xml found in repo."
+            echo "리포 구조를 확인하세요. 예: tuto/pom.xml 또는 tuto-1.0.4/tuto/pom.xml"
             exit 1
           fi
           MODULE_DIR="$(dirname "$POM")"
@@ -36,7 +40,7 @@ jobs:
           echo "jar_glob=$MODULE_DIR/target/*.jar" >> "$GITHUB_OUTPUT"
           echo "Found POM at: $POM"
 
-      # POM 경로를 -f 옵션으로 지정해서 빌드 (working-directory 필요 없음)
+      # -f 로 정확한 POM 지정
       - name: Build with Maven
         run: mvn -q -DskipTests -f "${{ steps.findpom.outputs.pom }}" clean package
 
@@ -45,3 +49,4 @@ jobs:
         with:
           name: tuto-jar
           path: ${{ steps.findpom.outputs.jar_glob }}
+          if-no-files-found: error

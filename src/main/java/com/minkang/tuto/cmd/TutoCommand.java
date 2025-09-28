@@ -93,11 +93,11 @@ public class TutoCommand implements CommandExecutor, TabCompleter {
 
         if (sub.equals("listtriggers")) {
             List<Trigger> list = plugin.getTriggers();
-            sender.sendMessage(ChatColor.AQUA + "등록된 트리거: " + list.size());
+            sender.sendMessage(ChatColor.AQUA + "등록된 트리거: " + String.valueOf(list.size()));
             int idx = 1;
             for (Trigger t : list) {
                 String w = (t.world==null? "null" : t.world.getName());
-                sender.sendMessage(ChatColor.GRAY + (idx++) + ") " + w + " " + t.x + " " + t.y + " " + t.z + (t.radius > 0 ? " r=" + t.radius : ""));
+                sender.sendMessage(ChatColor.GRAY + String.valueOf(idx++) + ") " + w + " " + t.x + " " + t.y + " " + t.z + (t.radius > 0 ? " r=" + t.radius : ""));
             }
             return true;
         }

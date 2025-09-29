@@ -44,6 +44,14 @@ public class TutoPlugin extends JavaPlugin {
         this.finishListener = new FinishTriggerListener(this);
         Bukkit.getPluginManager().registerEvents(new FirstJoinListener(this), this);
         Bukkit.getPluginManager().registerEvents(this.finishListener, this);
+        // Safety: re-load triggers one tick later in case worlds/plugins finish loading after us (Arclight/CatServer quirk)
+        Bukkit.getScheduler().runTask(this, new Runnable() {
+            @Override public void run() {
+                loadTriggersFromConfig();
+                getLogger().info("[Tuto] Triggers loaded: " + getTriggers().size());
+            }
+        });
+
 
         if (getCommand("tuto") != null) {
             TutoCommand cmd = new TutoCommand(this);
@@ -105,19 +113,81 @@ public class TutoPlugin extends JavaPlugin {
     /* ---------------- Trigger Load/Save ---------------- */
 
     @SuppressWarnings("unchecked")
-    public void loadTriggersFromConfig() {
+    public 
+void loadTriggersFromConfig() {
+        // Prefer external triggers.yml for persistence across restarts/reloads.
+        // Backward compatible: if triggers.yml absent, migrate from config.yaml (finish.triggers).
         this.triggers.clear();
         if (!isLocationMode()) return;
-        List<Map<String, Object>> list = (List<Map<String, Object>>) getConfig().getList("finish.triggers");
-        if (list == null) return;
-        for (Map<String, Object> m : list) {
-            try {
-                World w = null;
-                if (m.containsKey("world-uid")) {
-                    try {
-                        UUID uid = UUID.fromString(String.valueOf(m.get("world-uid")));
-                        w = Bukkit.getWorld(uid);
-                    } catch (Exception ignored) {}
+        try {
+            java.io.File dataFolder = getDataFolder();
+            if (!dataFolder.exists()) dataFolder.mkdirs();
+            java.io.File tf = new java.io.File(dataFolder, "triggers.yml");
+            org.bukkit.configuration.file.FileConfiguration tcfg = null;
+            java.util.List<java.util.Map<String,Object>> list = null;
+            if (tf.exists()) {
+                tcfg = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(tf);
+                java.util.List<?> raw = tcfg.getList("triggers");
+                if (raw != null) {
+                    list = new java.util.ArrayList<>();
+                    for (Object o : raw) {
+                        if (o instanceof java.util.Map) {
+                            @SuppressWarnings("unchecked")
+                            java.util.Map<String,Object> m = new java.util.LinkedHashMap<>((java.util.Map<String,Object>) o);
+                            list.add(m);
+                        }
+                    }
+                }
+            }
+            // migrate from config if file empty
+            if (list == null || list.isEmpty()) {
+                @SuppressWarnings("unchecked")
+                java.util.List<java.util.Map<String,Object>> cfgList = (java.util.List<java.util.Map<String,Object>>) getConfig().getList("finish.triggers");
+                list = cfgList;
+            }
+            if (list == null) return;
+
+            for (java.util.Map<String,Object> m : list) {
+                try {
+                    org.bukkit.World w = null;
+                    if (m.containsKey("world-uid")) {
+                        try {
+                            java.util.UUID uid = java.util.UUID.fromString(String.valueOf(m.get("world-uid")));
+                            w = org.bukkit.Bukkit.getWorld(uid);
+                        } catch (Exception ignored) {}
+                    }
+                    if (w == null && m.containsKey("world")) {
+                        w = org.bukkit.Bukkit.getWorld(String.valueOf(m.get("world")));
+                    }
+                    int x = Integer.parseInt(String.valueOf(m.get("x")));
+                    int y = Integer.parseInt(String.valueOf(m.get("y")));
+                    int z = Integer.parseInt(String.valueOf(m.get("z")));
+                    double radius = 0.0;
+                    if (m.containsKey("radius")) {
+                        try { radius = Double.parseDouble(String.valueOf(m.get("radius"))); } catch (Exception ignored) {}
+                    }
+                    java.util.List<String> commands = null;
+                    Object cmds = m.get("commands");
+                    if (cmds instanceof java.util.List) {
+                        commands = new java.util.ArrayList<>();
+                        for (Object o : ((java.util.List<?>)cmds)) {
+                            if (o != null) commands.add(String.valueOf(o));
+                        }
+                    }
+                    this.triggers.add(new com.minkang.tuto.model.Trigger(w, x, y, z, radius, commands));
+                } catch (Exception ignore) {
+                    // skip malformed entry
+                }
+            }
+            // if we loaded from config (migration path), write out to triggers.yml to persist
+            if (tf != null && (!tf.exists() || (tcfg != null && (tcfg.getList("triggers")==null || tcfg.getList("triggers").isEmpty())))) {
+                saveTriggersToConfig(); // our save writes both file + mirrors to config
+            }
+        } catch (Throwable t) {
+            getLogger().warning("[Tuto] Failed to load triggers: " + t.getMessage());
+        }
+}
+ catch (Exception ignored) {}
                 }
                 if (w == null && m.containsKey("world")) {
                     w = Bukkit.getWorld(String.valueOf(m.get("world")));
@@ -146,17 +216,42 @@ public class TutoPlugin extends JavaPlugin {
         }
     }
 
-    public void saveTriggersToConfig() {
+    
+public void saveTriggersToConfig() {
         try {
             if (!isLocationMode()) return;
-            List<Map<String,Object>> list = new ArrayList<Map<String,Object>>();
-            for (Trigger t : this.triggers) {
-                Map<String,Object> m = new LinkedHashMap<String,Object>();
+            java.util.List<java.util.Map<String,Object>> list = new java.util.ArrayList<>();
+            for (com.minkang.tuto.model.Trigger t : this.triggers) {
+                java.util.Map<String,Object> m = new java.util.LinkedHashMap<>();
                 if (t.world != null) {
                     try {
                         m.put("world", t.world.getName());
                         m.put("world-uid", t.world.getUID().toString());
                     } catch (Throwable ignored) {}
+                }
+                m.put("x", t.x);
+                m.put("y", t.y);
+                m.put("z", t.z);
+                if (t.radius > 0.0) m.put("radius", t.radius);
+                if (t.commands != null && !t.commands.isEmpty()) m.put("commands", t.commands);
+                list.add(m);
+            }
+            // Write to separate triggers.yml
+            java.io.File dataFolder = getDataFolder();
+            if (!dataFolder.exists()) dataFolder.mkdirs();
+            java.io.File tf = new java.io.File(dataFolder, "triggers.yml");
+            org.bukkit.configuration.file.YamlConfiguration tcfg = new org.bukkit.configuration.file.YamlConfiguration();
+            tcfg.set("triggers", list);
+            tcfg.save(tf);
+
+            // Mirror into config under finish.triggers for transparency (not authoritative)
+            getConfig().set("finish.triggers", list);
+            saveConfig();
+        } catch (Throwable t) {
+            getLogger().warning("[Tuto] Failed to save triggers: " + t.getMessage());
+        }
+}
+ catch (Throwable ignored) {}
                 }
                 m.put("x", t.x);
                 m.put("y", t.y);

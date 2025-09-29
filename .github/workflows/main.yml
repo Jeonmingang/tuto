@@ -1,4 +1,4 @@
-name: Build Tuto (Java 11)
+name: Build (Java 11 preferred)
 
 on:
   push:
@@ -9,34 +9,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Temurin JDK 11
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '11'
-          cache: 'maven'
+          cache: maven
 
-      - name: Verify Java & Maven
+      - name: Inspect Java toolchain
         run: |
-          java -version
-          mvn -v
+          echo "JAVA_HOME=$JAVA_HOME"
+          which java || true
+          java -version || true
+          which javac || true
+          javac -version || true
 
-- name: Inspect Java toolchain
-  run: |
-    echo "JAVA_HOME=$JAVA_HOME"
-    which java || where java
-    java -version
-    which javac || where javac
-    javac -version
-
-- name: Build (prefer Java 11 profile)
-  run: mvn -B -U -e -DskipTests -Pjava11plus clean package
+      - name: Build with Maven (prefer Java 11 profile)
+        run: mvn -B -U -e -DskipTests -Pjava11plus -f "pom.xml" clean package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Tuto-jar
-          path: target/*.jar
+          name: tuto-jar
+          path: "**/target/*.jar"

@@ -24,8 +24,16 @@ jobs:
           java -version
           mvn -v
 
-      - name: Build with Maven
-        run: mvn -B -U -e -DskipTests package
+- name: Inspect Java toolchain
+  run: |
+    echo "JAVA_HOME=$JAVA_HOME"
+    which java || where java
+    java -version
+    which javac || where javac
+    javac -version
+
+- name: Build (prefer Java 11 profile)
+  run: mvn -B -U -e -DskipTests -Pjava11plus clean package
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

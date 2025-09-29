@@ -1,0 +1,44 @@
+debug: false
+
+tutorial:
+  enabled: true
+  on-first-join:
+    warp: tutorial              # EssentialsX /warp <name> <player> (빈칸이면 미사용)
+    commands:                   # 첫 접속 시 실행할 추가 명령(선택)
+      - "console: say Welcome {player}!"
+      - "player: kit starter"
+
+finish:
+  enabled: true
+  trigger:
+    mode: block                 # block | radius
+    radius: 1.0                 # mode=radius일 때만 사용
+    require-sneak: false        # 웅크릴 때만 발동
+    one-time-per-player: true   # 1회만 완료 처리
+    cooldown-seconds: 2
+    bypass-permission: "tutorial.bypass"
+
+  blocks:                       # 종료 블럭 목록 (명령으로 추가/삭제/초기화 가능)
+    - { world: "", world-uid: "", x: 0, y: 0, z: 0 }
+
+  actions:                      # 트리거 시 수행
+    - "message: &a튜토리얼 완료! 스폰으로 이동합니다."
+    - "warp: spawn"             # EssentialsX Warp 사용 (예: spawn)
+    # - "teleport: world-spawn" # EssentialsX 없으면 이걸로 대체 가능
+    # - "console: give {player} diamond 3"
+    # - "player: kits tools"
+    # - "op: spawn"
+    # - "title: &a튜토리얼 완료!"
+    # - "subtitle: &7즐거운 플레이 되세요"
+    # - "sound: UI_TOAST_CHALLENGE_COMPLETE"
+
+messages:
+  prefix: "&6[Tutorial]&r "
+  first-join: "&e튜토리얼 지역으로 이동합니다."
+  set-finish-start: "&a종료블럭을 &f우클릭&7으로 지정하세요."
+  set-finish-done: "&a종료블럭 추가: &f%world% %x%,%y%,%z%"
+  removed-nearest: "&c가장 가까운 종료블럭을 삭제했습니다: &f%world% %x%,%y%,%z%"
+  cleared: "&c모든 종료블럭 삭제."
+  list-header: "&e[종료블럭 목록]"
+  list-entry: "&7- &f%world% %x%,%y%,%z%"
+  no-finish: "&7종료블럭이 아직 설정되지 않았습니다."

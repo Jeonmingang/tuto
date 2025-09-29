@@ -1,13 +1,11 @@
 name: Tuto
 main: com.minkang.tuto.TutoPlugin
-version: 1.1.0
+version: 1.2.0
 api-version: 1.16
-author: minkang
-softdepend: [Essentials]
 commands:
   tuto:
-    description: Tuto admin command
-    usage: /tuto <reload|reset <player>|complete <player>|status <player>|settrigger [radius]|cleartriggers|listtriggers>
+    description: Tutorial triggers command
+    usage: /tuto
     permission: tuto.admin
 permissions:
   tuto.admin:

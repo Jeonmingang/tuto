@@ -3,147 +3,125 @@ package com.minkang.tuto.listener;
 import com.minkang.tuto.TutoPlugin;
 import com.minkang.tuto.model.Trigger;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.inventory.EquipmentSlot;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 public class FinishTriggerListener implements Listener {
+
     private final TutoPlugin plugin;
-    private final Set<UUID> cooldown = new HashSet<UUID>();
-    private final Map<String, Boolean> blockTypeCache = new HashMap<String, Boolean>();
+    private final Set<UUID> inRegion = new HashSet<>();
 
-    public FinishTriggerListener(TutoPlugin plugin){ this.plugin = plugin; }
+    public FinishTriggerListener(TutoPlugin plugin) { this.plugin = plugin; }
 
-    private boolean isFinishBlock(Material mat){
-        String key = mat.name();
-        Boolean cached = blockTypeCache.get(key);
-        if (cached != null) return cached.booleanValue();
-        List<String> list = plugin.getConfig().getStringList("finish.block-types");
-        boolean match = false;
-        for (String s : list){
-            try { if (mat == Material.valueOf(s.toUpperCase())) { match = true; break; } } catch (Exception ignore){}
-        }
-        blockTypeCache.put(key, match);
-        return match;
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onMove(PlayerMoveEvent e){
+    @EventHandler
+    public void onMove(PlayerMoveEvent e) {
         if (!plugin.isFinishEnabled()) return;
         Player p = e.getPlayer();
 
-        // Only check when block position changes
+        // Only react when block coordinates change (reduces spam)
         if (e.getFrom().getBlockX() == e.getTo().getBlockX()
-         && e.getFrom().getBlockY() == e.getTo().getBlockY()
-         && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) {
+                && e.getFrom().getBlockY() == e.getTo().getBlockY()
+                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) {
             return;
         }
 
-        if (plugin.getConfig().getBoolean("finish.require-sneak-to-complete", false)) {
-            if (!p.isSneaking()) return;
-        }
-
-        UUID u = p.getUniqueId();
-        boolean oneTime = plugin.getConfig().getBoolean("finish.one-time-per-player", true);
-        if (oneTime && plugin.data().isCompleted(u)) return;
-
-        int cdSec = plugin.getConfig().getInt("finish.cooldown-seconds", 2);
-        if (cdSec > 0) {
-            if (cooldown.contains(u)) return;
-        }
-
-        boolean matched = false;
-        List<Trigger> list = plugin.getTriggers();
-        if (plugin.isLocationMode()) {
-            for (Trigger t : list) {
-                if (t.matches(p.getLocation())) { matched = true; break; }
-            }
+        String mode = plugin.getFinishMode();
+        if ("block".equalsIgnoreCase(mode)) {
+            handleBlockMode(p);
         } else {
-            // block mode — step on configured block type
-            Material under = p.getLocation().clone().add(0, -1, 0).getBlock().getType();
-            matched = isFinishBlock(under);
+            handleLocationMode(p);
         }
-
-        if (!matched) return;
-
-        // Mark complete and cooldown
-        plugin.data().setCompleted(u, true);
-        if (cdSec > 0) {
-            cooldown.add(u);
-            Bukkit.getScheduler().runTaskLater(plugin, new Runnable(){
-                @Override public void run(){ cooldown.remove(u); }
-            }, cdSec * 20L);
-        }
-
-        // Feedback + commands
-        final String msg = plugin.getConfig().getString("messages.finished", "&a튜토리얼 완료!");
-        p.sendMessage(org.bukkit.ChatColor.translateAlternateColorCodes('&', msg));
-
-        int delay = plugin.getConfig().getInt("finish.execute-delay-ticks", 0);
-        new BukkitRunnable(){
-            @Override public void run(){
-                runFinishCommands(p);
-            }
-        }.runTaskLater(plugin, Math.max(0, delay));
     }
 
-    private void runFinishCommands(Player p){
-        // Pick per-trigger commands if matching trigger has its own, else global default list
-        List<String> commands = null;
-        if (plugin.isLocationMode()) {
-            for (Trigger t : plugin.getTriggers()) {
-                if (t.matches(p.getLocation()) && t.commands != null && !t.commands.isEmpty()) {
-                    commands = t.commands;
+    private void handleBlockMode(Player p) {
+        List<String> blocks = plugin.getBlockTypes();
+        Block b = p.getLocation().getBlock();
+        if (b == null) return;
+        Material m = b.getType();
+        for (String s : blocks) {
+            try {
+                Material want = Material.valueOf(s.toUpperCase(Locale.ROOT));
+                if (m == want) {
+                    triggerFinish(p, null);
                     break;
+                }
+            } catch (IllegalArgumentException ignored) {}
+        }
+    }
+
+    private void handleLocationMode(Player p) {
+        Location loc = p.getLocation();
+        boolean inside = false;
+        for (Trigger t : plugin.getTriggers()) {
+            if (!t.worldName.equals(loc.getWorld().getName())) continue;
+            if (t.radius <= 0) {
+                if (loc.getBlockX() == (int)t.x && loc.getBlockY() == (int)t.y && loc.getBlockZ() == (int)t.z) {
+                    inside = true; break;
+                }
+            } else {
+                if (loc.getWorld().getUID().equals(t.worldUid) &&
+                        loc.distanceSquared(new Location(loc.getWorld(), t.x, t.y, t.z)) <= t.radius * t.radius) {
+                    inside = true; break;
                 }
             }
         }
-        if (commands == null || commands.isEmpty()) {
-            commands = plugin.getConfig().getStringList("finish.commands");
-        }
-        for (String raw : commands) {
-            String line = raw == null ? "" : raw.trim();
-            if (line.length() == 0) continue;
-            String replaced = line.replace("{player}", p.getName());
-            ExecMode mode = ExecMode.CONSOLE;
-            String cmd = replaced;
-            int colon = replaced.indexOf(':');
-            if (colon > 0) {
-                String prefix = replaced.substring(0, colon).trim().toLowerCase();
-                cmd = replaced.substring(colon+1).trim();
-                if (prefix.equals("player")) mode = ExecMode.PLAYER;
-                else if (prefix.equals("op")) mode = ExecMode.OP;
-                else mode = ExecMode.CONSOLE;
+        if (inside) {
+            if (inRegion.add(p.getUniqueId())) {
+                triggerFinish(p, null);
             }
-            switch (mode){
-                case PLAYER:
-                    p.performCommand(cmd);
-                    break;
-                case OP:
-                    boolean was = p.isOp();
-                    try{
-                        if (!was) p.setOp(true);
-                        p.performCommand(cmd);
-                    } finally {
-                        if (!was) p.setOp(false);
-                    }
-                    break;
-                default:
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-            }
+        } else {
+            inRegion.remove(p.getUniqueId());
         }
     }
 
-    enum ExecMode { CONSOLE, PLAYER, OP }
+    private void triggerFinish(Player p, List<String> overrideCmds) {
+        if (plugin.isOneTime() && plugin.getDataStore().isFinished(p.getUniqueId())) return;
+        if (plugin.getDataStore().onCooldown(p.getUniqueId(), plugin.getCooldownSeconds())) return;
+
+        List<String> cmds = (overrideCmds != null && !overrideCmds.isEmpty()) ? overrideCmds : plugin.getFinishCommands();
+
+        Runnable run = () -> {
+            for (String raw : cmds) {
+                String line = raw.replace("{player}", p.getName());
+                String lower = line.toLowerCase(Locale.ROOT);
+                if (lower.startsWith("console:")) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), line.substring("console:".length()).trim());
+                } else if (lower.startsWith("player:")) {
+                    p.performCommand(line.substring("player:".length()).trim());
+                } else if (lower.startsWith("op:")) { // safe op wrapper
+                    boolean wasOp = p.isOp();
+                    try {
+                        p.setOp(true);
+                        p.performCommand(line.substring("op:".length()).trim());
+                    } finally {
+                        p.setOp(wasOp);
+                    }
+                } else {
+                    // default console
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), line);
+                }
+            }
+            p.sendMessage(col(plugin.prefix() + plugin.msgFinish()));
+            plugin.getDataStore().setFinished(p.getUniqueId());
+            plugin.getDataStore().setCooldown(p.getUniqueId(), plugin.getCooldownSeconds());
+        };
+
+        int delay = plugin.getExecuteDelayTicks();
+        if (delay > 0) Bukkit.getScheduler().runTaskLater(plugin, run, delay);
+        else Bukkit.getScheduler().runTask(plugin, run);
+    }
+
+    private String col(String s) { return org.bukkit.ChatColor.translateAlternateColorCodes('&', s); }
 }

@@ -1,8 +1,6 @@
 package com.minkang.tuto.store;
 
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,43 +9,47 @@ import java.util.Set;
 import java.util.UUID;
 
 public class DataStore {
-    private final Plugin plugin;
-    private File file;
-    private FileConfiguration conf;
-    private final Set<UUID> completed = new HashSet<UUID>();
+    private final File file;
+    private YamlConfiguration yml;
+    private final Set<UUID> finished = new HashSet<>();
+    private final java.util.Map<UUID, Long> cooldowns = new java.util.HashMap<>();
 
-    public DataStore(Plugin plugin){ this.plugin = plugin; }
+    public DataStore(File file) {
+        this.file = file;
+    }
 
-    public void load(){
-        try{
-            if (file == null) {
-                file = new File(plugin.getDataFolder(), "data.yml");
-            }
-            if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
-            if (!file.exists()) {
-                conf = new YamlConfiguration();
-                conf.set("completed", new java.util.ArrayList<String>());
-                conf.save(file);
-            }
-            conf = YamlConfiguration.loadConfiguration(file);
-            completed.clear();
-            for (String s : conf.getStringList("completed")){
-                try { completed.add(UUID.fromString(s)); } catch (Exception ignore) {}
-            }
-        } catch (Throwable t){
-            t.printStackTrace();
+    public void load() {
+        if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
+        if (!file.exists()) {
+            try { file.createNewFile(); } catch (IOException ignored) {}
+        }
+        this.yml = YamlConfiguration.loadConfiguration(file);
+        this.finished.clear();
+        for (String s : this.yml.getStringList("finished")) {
+            try { finished.add(UUID.fromString(s)); } catch (Exception ignored) {}
         }
     }
 
-    public void save(){
-        if (conf == null) conf = new YamlConfiguration();
-        java.util.List<String> list = new java.util.ArrayList<String>();
-        for (UUID u : completed) list.add(u.toString());
-        conf.set("completed", list);
-        try { conf.save(file); } catch (IOException e) { e.printStackTrace(); }
+    public void save() {
+        if (this.yml == null) this.yml = new YamlConfiguration();
+        java.util.List<String> list = new java.util.ArrayList<>();
+        for (UUID u : finished) list.add(u.toString());
+        this.yml.set("finished", list);
+        try { this.yml.save(file); } catch (IOException ignored) {}
     }
 
-    public boolean isCompleted(UUID u){ return completed.contains(u); }
-    public void setCompleted(UUID u, boolean done){ if (done) completed.add(u); else completed.remove(u); save(); }
-    public void reset(UUID u){ completed.remove(u); save(); }
+    public boolean isFinished(UUID uuid) { return finished.contains(uuid); }
+    public void setFinished(UUID uuid) { finished.add(uuid); }
+
+    public boolean onCooldown(UUID uuid, int seconds) {
+        if (seconds <= 0) return false;
+        long now = System.currentTimeMillis();
+        Long until = cooldowns.get(uuid);
+        return until != null && until > now;
+    }
+
+    public void setCooldown(UUID uuid, int seconds) {
+        if (seconds <= 0) { cooldowns.remove(uuid); return; }
+        cooldowns.put(uuid, System.currentTimeMillis() + seconds * 1000L);
+    }
 }

@@ -8,20 +8,20 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
 public class FirstJoinListener implements Listener {
+
     private final TutoPlugin plugin;
-    public FirstJoinListener(TutoPlugin plugin){ this.plugin = plugin; }
+
+    public FirstJoinListener(TutoPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     @EventHandler
-    public void onJoin(PlayerJoinEvent e){
-        final Player p = e.getPlayer();
-        if (!plugin.isTutorialEnabled()) return;
-        if (p.hasPlayedBefore()) return; // only first join
-        final String warp = plugin.tutorialWarp();
-        Bukkit.getScheduler().runTaskLater(plugin, new Runnable(){
-            @Override public void run(){
-                if (!p.isOnline()) return;
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "warp " + warp + " " + p.getName());
-            }
-        }, 20L);
+    public void onJoin(PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        if (!plugin.getConfig().getBoolean("tutorial.enabled", true)) return;
+        if (p.hasPlayedBefore()) return;
+        String warp = plugin.getConfig().getString("tutorial.warp", "tutorial");
+        // essentials: /warp <name>
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "warp " + warp + " " + p.getName());
     }
 }

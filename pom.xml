@@ -1,13 +1,13 @@
-<?xml version='1.0' encoding='utf-8'?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
-  <groupId>com.minkang</groupId>
+  <groupId>com.minkang.tuto</groupId>
   <artifactId>Tuto</artifactId>
-  <version>1.1.0</version>
-  <name>Tuto</name>
-  <description>Tutorial plugin: first-join warp and location/block triggers to finish</description>
+  <version>1.2.0</version>
   <packaging>jar</packaging>
+  <name>Tuto</name>
+  <description>Tutorial trigger plugin with persistent triggers</description>
 
   <properties>
     <maven.compiler.release>11</maven.compiler.release>
@@ -16,12 +16,12 @@
 
   <repositories>
     <repository>
-      <id>spigot-repo</id>
+      <id>spigotmc-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
     </repository>
     <repository>
-      <id>papermc-repo</id>
-      <url>https://repo.papermc.io/repository/maven-public/</url>
+      <id>sonatype</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
     </repository>
   </repositories>
 
@@ -38,16 +38,31 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>3.3.0</version>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
         <configuration>
-          <archive>
-            <manifestEntries>
-              <Built-By>Tuto</Built-By>
-            </manifestEntries>
-          </archive>
+          <release>${maven.compiler.release}</release>
+          <fork>true</fork>
         </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+    </resources>
   </build>
-<profiles><profile><id>java11plus</id><activation><jdk>[11,)</jdk></activation><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.11.0</version><configuration><release>11</release><fork>true</fork></configuration></plugin></plugins></build></profile><profile><id>java8-fallback</id><activation><jdk>[1.8,1.9)</jdk></activation><build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.11.0</version><configuration><source>1.8</source><target>1.8</target><fork>true</fork></configuration></plugin></plugins></build></profile></profiles></project>
+</project>

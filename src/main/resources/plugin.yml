@@ -1,0 +1,15 @@
+name: TutorialFinishBlock
+main: com.minkang.tutorial.TutorialPlugin
+version: 1.3.0
+api-version: 1.16
+commands:
+  튜토리얼:
+    description: 튜토리얼 관리
+    usage: /튜토리얼 [종료블럭|블럭삭제|블럭목록|블럭초기화|완료|완료해제|테스트|리로드]
+    aliases: [tutorial]
+    permission: tutorial.admin
+permissions:
+  tutorial.admin:
+    default: op
+  tutorial.bypass:
+    default: op

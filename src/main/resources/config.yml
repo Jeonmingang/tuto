@@ -1,0 +1,37 @@
+debug: false
+
+tutorial:
+  enabled: true
+  on-first-join:
+    warp: tutorial              # EssentialsX /warp <name> <player> (빈칸이면 미사용)
+    commands:                   # 첫 접속 시 실행할 추가 명령(선택)
+      - "console: say Welcome {player}!"
+      - "player: kit starter"
+
+finish:
+  enabled: true
+  trigger:
+    mode: block                 # block | radius
+    radius: 1.0                 # mode=radius일 때만 사용 (블럭 중심에서 거리)
+    require-sneak: false        # 웅크릴 때만 발동
+  actions:
+    # 아래는 실행 순서대로 동작합니다. (지원: console:/player:/op:/title:/subtitle:/sound:/tp:/warp:)
+    - "title: &a튜토리얼 완료!"
+    - "subtitle: &7즐거운 플레이 되세요"
+    - "sound: UI_TOAST_CHALLENGE_COMPLETE"
+    - "console: spawn {player}" # 콘솔 명령 (예: spawn 플러그인)
+    # - "player: rtp"           # 플레이어가 직접 수행할 명령
+    # - "op: someadmincmd args" # 일시적으로 OP 부여 후 실행
+    # - "tp: world,0,80,0"      # 특정 좌표로 텔레포트
+    # - "warp: spawn"           # EssentialsX 워프
+
+messages:
+  prefix: "&6[Tutorial]&r "
+  first-join: "&e튜토리얼 지역으로 이동합니다."
+  set-finish-start: "&a종료블럭을 &f우클릭&7으로 지정하세요."
+  set-finish-done: "&a종료블럭 추가: &f%world% %x%,%y%,%z%"
+  removed-nearest: "&c가장 가까운 종료블럭을 삭제했습니다: &f%world% %x%,%y%,%z%"
+  cleared: "&c모든 종료블럭 삭제."
+  list-header: "&e[종료블럭 목록]"
+  list-entry: "&7- &f%world% %x%,%y%,%z%"
+  no-finish: "&7종료블럭이 아직 설정되지 않았습니다."

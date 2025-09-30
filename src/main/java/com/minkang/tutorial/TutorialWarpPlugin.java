@@ -1,8 +1,9 @@
 package com.minkang.tutorial;
 
+import com.minkang.tutorial.cmd.TutorialCommand;
+import com.minkang.tutorial.listeners.FirstJoinListener;
+import com.minkang.tutorial.listeners.MoveListener;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -21,10 +22,10 @@ public class TutorialWarpPlugin extends JavaPlugin {
         saveDefaultConfig();
         reloadAll();
         // listeners
-        Bukkit.getPluginManager().registerEvents(new listeners.FirstJoinListener(this), this);
-        Bukkit.getPluginManager().registerEvents(new listeners.MoveListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new FirstJoinListener(this), this);
+        Bukkit.getPluginManager().registerEvents(new MoveListener(this), this);
         // command
-        Objects.requireNonNull(getCommand("tutorial")).setExecutor(new cmd.TutorialCommand(this));
+        Objects.requireNonNull(getCommand("tutorial")).setExecutor(new TutorialCommand(this));
         log("&aEnabled &7(v" + getDescription().getVersion() + ")");
     }
 
@@ -76,7 +77,7 @@ public class TutorialWarpPlugin extends JavaPlugin {
         public BlockPoint(String world, int x, int y, int z) {
             this.world = world; this.x = x; this.y = y; this.z = z;
         }
-        public static BlockPoint of(Location loc) {
+        public static BlockPoint of(org.bukkit.Location loc) {
             return new BlockPoint(loc.getWorld().getName(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
         }
         public static BlockPoint parse(String s) {
@@ -86,17 +87,17 @@ public class TutorialWarpPlugin extends JavaPlugin {
                 return new BlockPoint(t[0], Integer.parseInt(t[1]), Integer.parseInt(t[2]), Integer.parseInt(t[3]));
             } catch (Exception e) { return null; }
         }
-        public Location toLocation() {
-            World w = Bukkit.getWorld(world);
-            return (w == null) ? null : new Location(w, x + 0.5, y, z + 0.5);
+        public org.bukkit.Location toLocation() {
+            org.bukkit.World w = Bukkit.getWorld(world);
+            return (w == null) ? null : new org.bukkit.Location(w, x + 0.5, y, z + 0.5);
         }
         @Override public String toString() { return world + "," + x + "," + y + "," + z; }
         @Override public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof BlockPoint)) return false;
             BlockPoint bp = (BlockPoint)o;
-            return x==bp.x && y==bp.y && z==bp.z && Objects.equals(world, bp.world);
+            return x==bp.x && y==bp.y && z==bp.z && java.util.Objects.equals(world, bp.world);
         }
-        @Override public int hashCode() { return Objects.hash(world,x,y,z); }
+        @Override public int hashCode() { return java.util.Objects.hash(world,x,y,z); }
     }
 }

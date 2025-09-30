@@ -14,18 +14,19 @@ public class DataStore {
 
     public DataStore(File dataFolder) {
         this.file = new File(dataFolder, "data.yml");
+        reload();
     }
 
-    public void load() {
-        try {
-            if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
-            if (!file.exists()) file.createNewFile();
-            yml = YamlConfiguration.loadConfiguration(file);
-            finished.clear();
-            for (String s : yml.getStringList("finished")) {
-                try { finished.add(UUID.fromString(s)); } catch (IllegalArgumentException ignored) {}
-            }
-        } catch (IOException ignored) {}
+    public void reload() {
+        if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
+        if (!file.exists()) {
+            try { file.createNewFile(); } catch (IOException ignore) {}
+        }
+        yml = YamlConfiguration.loadConfiguration(file);
+        finished.clear();
+        for (String s : yml.getStringList("finished")) {
+            try { finished.add(UUID.fromString(s)); } catch (IllegalArgumentException ignore) {}
+        }
     }
 
     public void save() {
@@ -33,7 +34,7 @@ public class DataStore {
         List<String> list = new ArrayList<>();
         for (UUID u : finished) list.add(u.toString());
         yml.set("finished", list);
-        try { yml.save(file); } catch (IOException ignored) {}
+        try { yml.save(file); } catch (IOException ignore) {}
     }
 
     public boolean isFinished(UUID u) { return finished.contains(u); }

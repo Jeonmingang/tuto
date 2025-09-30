@@ -5,6 +5,7 @@ import com.minkang.tutorial.listener.FirstJoinListener;
 import com.minkang.tutorial.listener.FinishBlockListener;
 import com.minkang.tutorial.store.DataStore;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
@@ -16,148 +17,118 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TutorialPlugin extends JavaPlugin {
 
-    private final List<Location> finishBlocks = new ArrayList<>();
-    private final Set<UUID> selecting = ConcurrentHashMap.newKeySet();
+    private final Set<Location> finishBlocks = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> awaitingFinishClick = ConcurrentHashMap.newKeySet();
     private DataStore dataStore;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        this.dataStore = new DataStore(getDataFolder());
-        this.dataStore.load();
         loadFinishBlocks();
+        dataStore = new DataStore(getDataFolder());
 
+        // listeners
         Bukkit.getPluginManager().registerEvents(new FirstJoinListener(this), this);
         Bukkit.getPluginManager().registerEvents(new FinishBlockListener(this), this);
 
-        if (getCommand("튜토리얼") != null) {
-            getCommand("튜토리얼").setExecutor(new TutorialCommand(this));
-        }
+        // command
+        getCommand("튜토리얼").setExecutor(new TutorialCommand(this));
 
-        log("&aEnabled. Blocks=" + finishBlocks.size());
+        getLogger().info("TutorialFinishBlock enabled. Blocks=" + finishBlocks.size());
     }
 
     @Override
     public void onDisable() {
         saveFinishBlocks();
-        if (this.dataStore != null) this.dataStore.save();
+        if (dataStore != null) dataStore.save();
     }
 
-    // --- Config getters ---
-    public boolean debug() { return getConfig().getBoolean("debug", false); }
-    public boolean tutorialEnabled() { return getConfig().getBoolean("tutorial.enabled", true); }
-    public String firstWarp() { return getConfig().getString("tutorial.on-first-join.warp", ""); }
-    public List<String> firstCommands() { return getConfig().getStringList("tutorial.on-first-join.commands"); }
-
-    public boolean finishEnabled() { return getConfig().getBoolean("finish.enabled", true); }
-    public String triggerMode() { return getConfig().getString("finish.trigger.mode", "block").toLowerCase(Locale.ROOT); }
-    public double triggerRadius() { return getConfig().getDouble("finish.trigger.radius", 1.0D); }
-    public boolean requireSneak() { return getConfig().getBoolean("finish.trigger.require-sneak", false); }
-    public boolean oneTime() { return getConfig().getBoolean("finish.trigger.one-time-per-player", true); }
-    public int cooldownSeconds() { return getConfig().getInt("finish.trigger.cooldown-seconds", 2); }
-    public String bypassPerm() { return getConfig().getString("finish.trigger.bypass-permission", "tutorial.bypass"); }
-
-    public List<String> actions() { return getConfig().getStringList("finish.actions"); }
-
-    public String msg(String k, String def) {
-        String s = getConfig().getString("messages."+k, def);
-        return org.bukkit.ChatColor.translateAlternateColorCodes('&', s);
-    }
-    public String prefix() { return getConfig().getString("messages.prefix", "&6[Tutorial]&r "); }
-
-    // --- Finish blocks storage ---
-    public List<Location> getFinishBlocks() { return Collections.unmodifiableList(finishBlocks); }
-
-    public void addFinishBlock(Location loc) {
-        if (loc == null || loc.getWorld() == null) return;
-        Location l = new Location(loc.getWorld(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
-        this.finishBlocks.add(l);
-        saveFinishBlocks();
-    }
-
-    public Location removeNearest(Location from) {
-        if (finishBlocks.isEmpty()) return null;
-        Location best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Location l : finishBlocks) {
-            if (l.getWorld() == null || !l.getWorld().equals(from.getWorld())) continue;
-            double d = l.distanceSquared(from);
-            if (d < bestDist) { bestDist = d; best = l; }
-        }
-        if (best != null) { finishBlocks.remove(best); saveFinishBlocks(); }
-        return best;
-    }
-
-    public void clearFinishBlocks() {
-        this.finishBlocks.clear();
-        saveFinishBlocks();
-    }
-
+    // ===== Finish blocks =====
     public void loadFinishBlocks() {
-        this.finishBlocks.clear();
-        List<?> list = getConfig().getList("finish.blocks");
-        if (list == null) return;
-        for (Object o : list) {
-            if (!(o instanceof Map)) continue;
-            Map<?,?> m = (Map<?,?>) o;
-            String worldName = String.valueOf(m.get("world"));
-            String uid = String.valueOf(m.get("world-uid"));
-            World w = null;
-            try { if (uid != null && !"".equals(uid) && !"null".equalsIgnoreCase(uid)) w = Bukkit.getWorld(UUID.fromString(uid)); } catch (Exception ignored) {}
-            if (w == null) w = Bukkit.getWorld(worldName);
+        finishBlocks.clear();
+        FileConfiguration cfg = getConfig();
+        List<String> raw = cfg.getStringList("finish.blocks");
+        for (String s : raw) {
+            String[] parts = s.split(",", 5);
+            if (parts.length < 4) continue;
+            World w = Bukkit.getWorld(parts[0]);
             if (w == null) continue;
-            int x = toInt(m.get("x")), y = toInt(m.get("y")), z = toInt(m.get("z"));
-            this.finishBlocks.add(new Location(w, x, y, z));
+            try {
+                int x = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                int z = Integer.parseInt(parts[3]);
+                finishBlocks.add(new Location(w, x, y, z));
+            } catch (NumberFormatException ignore) {}
         }
     }
 
     public void saveFinishBlocks() {
-        List<Map<String,Object>> out = new ArrayList<>();
+        List<String> out = new ArrayList<>();
         for (Location l : finishBlocks) {
-            if (l.getWorld() == null) continue;
-            Map<String,Object> m = new HashMap<>();
-            m.put("world", l.getWorld().getName());
-            m.put("world-uid", l.getWorld().getUID().toString());
-            m.put("x", l.getBlockX());
-            m.put("y", l.getBlockY());
-            m.put("z", l.getBlockZ());
-            out.add(m);
+            out.add(l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ());
         }
         getConfig().set("finish.blocks", out);
         saveConfig();
     }
 
-    // --- Selection state ---
-    public void beginSelecting(UUID u) { selecting.add(u); }
-    public boolean isSelecting(UUID u) { return selecting.contains(u); }
-    public void endSelecting(UUID u) { selecting.remove(u); }
-
-    // --- Data store ---
-    public DataStore store() { return dataStore; }
-
-    // --- Reload ---
-    public void reloadAll() {
-        reloadConfig();
-        loadFinishBlocks();
+    public boolean addFinishBlock(Location l) {
+        Location b = new Location(l.getWorld(), l.getBlockX(), l.getBlockY(), l.getBlockZ());
+        boolean added = finishBlocks.add(b);
+        if (added) saveFinishBlocks();
+        return added;
     }
 
-    // --- Utils ---
-    private int toInt(Object o) {
-        try { return (o instanceof Number) ? ((Number)o).intValue() : Integer.parseInt(String.valueOf(o)); }
-        catch (Exception e) { return 0; }
+    public Location removeNearest(Location ref) {
+        Location nearest = null;
+        double best = Double.MAX_VALUE;
+        for (Location l : finishBlocks) {
+            if (!Objects.equals(l.getWorld(), ref.getWorld())) continue;
+            double d = l.distanceSquared(ref);
+            if (d < best) { best = d; nearest = l; }
+        }
+        if (nearest != null) {
+            finishBlocks.remove(nearest);
+            saveFinishBlocks();
+        }
+        return nearest;
     }
 
+    public Set<Location> getFinishBlocks() { return Collections.unmodifiableSet(finishBlocks); }
+
+    // ===== State =====
+    public DataStore data() { return dataStore; }
+
+    public Set<UUID> awaiting() { return awaitingFinishClick; }
+
+    // ===== Config getters =====
+    public boolean debug() { return getConfig().getBoolean("debug", false); }
+    public String prefix() { return getConfig().getString("messages.prefix", ""); }
+    public String msg(String path, String def) { return getConfig().getString("messages."+path, def); }
+
+    public boolean firstJoinEnabled() { return getConfig().getBoolean("tutorial.enabled", true); }
+    public String firstJoinWarp() { return getConfig().getString("tutorial.on-first-join.warp", ""); }
+    public List<String> firstJoinCmds() { return getConfig().getStringList("tutorial.on-first-join.commands"); }
+
+    public boolean finishEnabled() { return getConfig().getBoolean("finish.enabled", true); }
+    public String triggerMode() { return getConfig().getString("finish.trigger.mode", "block"); }
+    public double triggerRadius() { return getConfig().getDouble("finish.trigger.radius", 1.0D); }
+    public boolean triggerRequireSneak() { return getConfig().getBoolean("finish.trigger.require-sneak", false); }
+    public List<String> finishActions() { return getConfig().getStringList("finish.actions"); }
+
+    // ===== Utils =====
     public void log(String s) { if (debug()) getLogger().info(s); }
+
+    public static String color(String s) { return ChatColor.translateAlternateColorCodes('&', s == null ? "" : s); }
 
     public String ph(String s, UUID player, Location l) {
         if (s == null) return "";
-        String out = s.replace("{player}", Bukkit.getOfflinePlayer(player).getName() == null ? "player" : Bukkit.getOfflinePlayer(player).getName());
+        String out = s.replace("{player}", Bukkit.getOfflinePlayer(player) != null && Bukkit.getOfflinePlayer(player).getName()!=null ? Bukkit.getOfflinePlayer(player).getName() : "player");
         if (l != null && l.getWorld() != null) {
             out = out.replace("{world}", l.getWorld().getName())
                      .replace("{x}", String.valueOf(l.getBlockX()))
                      .replace("{y}", String.valueOf(l.getBlockY()))
                      .replace("{z}", String.valueOf(l.getBlockZ()));
         }
-        return org.bukkit.ChatColor.translateAlternateColorCodes('&', out);
+        return color(out);
     }
 }

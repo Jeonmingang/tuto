@@ -17,92 +17,77 @@ import java.util.*;
 public class FinishBlockListener implements Listener {
 
     private final TutorialPlugin plugin;
-    private final Map<UUID, Long> cooldown = new HashMap<>();
-
     public FinishBlockListener(TutorialPlugin plugin) { this.plugin = plugin; }
 
-    // Block pick
+    // Admin sets finish block by right clicking after command
     @EventHandler
-    public void onInteract(PlayerInteractEvent e) {
+    public void onRightClick(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Player p = e.getPlayer();
-        if (!plugin.isSelecting(p.getUniqueId())) return;
-        plugin.endSelecting(p.getUniqueId());
-        plugin.addFinishBlock(e.getClickedBlock().getLocation());
+        if (!plugin.awaiting().contains(p.getUniqueId())) return;
         Location l = e.getClickedBlock().getLocation();
-        p.sendMessage(plugin.msg("prefix","&6[Tutorial]&r ")
-                + plugin.msg("set-finish-done","&a종료블럭 추가: &f%world% %x%,%y%,%z%")
+        boolean added = plugin.addFinishBlock(l);
+        if (added) {
+            p.sendMessage(TutorialPlugin.color(plugin.prefix() + plugin.msg("set-finish-done","&a종료블럭 추가: &f%world% %x%,%y%,%z%")
                     .replace("%world%", l.getWorld().getName())
                     .replace("%x%", String.valueOf(l.getBlockX()))
                     .replace("%y%", String.valueOf(l.getBlockY()))
-                    .replace("%z%", String.valueOf(l.getBlockZ())));
+                    .replace("%z%", String.valueOf(l.getBlockZ()))));
+        } else {
+            p.sendMessage(TutorialPlugin.color("&c이미 등록된 블럭입니다."));
+        }
+        plugin.awaiting().remove(p.getUniqueId());
+        e.setCancelled(true);
     }
 
-    // Trigger
+    // Detect stepping on finish block (only when block position actually changes)
     @EventHandler
     public void onMove(PlayerMoveEvent e) {
         if (!plugin.finishEnabled()) return;
         Player p = e.getPlayer();
-        if (p.hasPermission(plugin.bypassPerm())) return;
+        if (p.hasPermission("tutorial.bypass")) return;
 
-        if (plugin.requireSneak() && !p.isSneaking()) return;
-
+        // Only react when block position changed to reduce spam
         if (e.getFrom().getBlockX() == e.getTo().getBlockX()
                 && e.getFrom().getBlockY() == e.getTo().getBlockY()
-                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
-
-        long now = System.currentTimeMillis();
-        long until = cooldown.getOrDefault(p.getUniqueId(), 0L);
-        if (until > now) return;
-
-        String mode = plugin.triggerMode();
-        Location playerLoc = p.getLocation();
-        boolean hit = false;
-        Location hitBlock = null;
-
-        if ("radius".equalsIgnoreCase(mode)) {
-            double r2 = plugin.triggerRadius() * plugin.triggerRadius();
-            for (Location l : plugin.getFinishBlocks()) {
-                if (l.getWorld() == null || !l.getWorld().equals(playerLoc.getWorld())) continue;
-                if (playerLoc.distanceSquared(l) <= r2) {
-                    hit = true; hitBlock = l; break;
-                }
-            }
-        } else { // block
-            Location feet = playerLoc.clone().subtract(0, 1, 0);
-            for (Location l : plugin.getFinishBlocks()) {
-                if (l.getWorld() == null || !l.getWorld().equals(feet.getWorld())) continue;
-                if (l.getBlockX() == feet.getBlockX()
-                        && l.getBlockY() == feet.getBlockY()
-                        && l.getBlockZ() == feet.getBlockZ()) {
-                    hit = true; hitBlock = l; break;
-                }
-            }
-        }
-
-        if (!hit) return;
-
-        if (plugin.oneTime() && plugin.store().isFinished(p.getUniqueId())) return;
-
-        // cooldown mark
-        cooldown.put(p.getUniqueId(), now + plugin.cooldownSeconds()*1000L);
-
-        // Do actions
-        runActions(p, hitBlock);
-        plugin.store().setFinished(p.getUniqueId());
-        plugin.store().save();
-    }
-
-    private void runActions(Player p, Location origin) {
-        List<String> actions = plugin.actions();
-        if (actions == null || actions.isEmpty()) {
-            // fallback: warp spawn or world spawn
-            String warp = "spawn";
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "warp " + warp + " " + p.getName());
+                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) {
             return;
         }
+
+        if (plugin.triggerRequireSneak() && !p.isSneaking()) return;
+
+        Location feet = p.getLocation();
+        World w = feet.getWorld();
+        if (w == null) return;
+
+        boolean triggered = false;
+        String mode = plugin.triggerMode();
+        if ("radius".equalsIgnoreCase(mode)) {
+            double r = plugin.triggerRadius();
+            for (Location l : plugin.getFinishBlocks()) {
+                if (!Objects.equals(l.getWorld(), w)) continue;
+                if (l.clone().add(0.5, 0.5, 0.5).distance(feet) <= r) { triggered = true; break; }
+            }
+        } else {
+            // block mode: block below player's feet equals a finish block
+            Location under = new Location(w, feet.getBlockX(), feet.getBlockY()-1, feet.getBlockZ());
+            for (Location l : plugin.getFinishBlocks()) {
+                if (l.equals(under)) { triggered = true; break; }
+            }
+        }
+
+        if (triggered) {
+            runActions(p, feet);
+            plugin.data().setFinished(p.getUniqueId());
+            plugin.data().save();
+        }
+    }
+
+    private void runActions(Player p, Location where) {
+        List<String> actions = plugin.finishActions();
         for (String raw : actions) {
-            String line = plugin.ph(raw, p.getUniqueId(), origin);
+            if (raw == null || raw.trim().isEmpty()) continue;
+            String line = plugin.ph(raw.trim(), p.getUniqueId(), where);
             String lower = line.toLowerCase(Locale.ROOT);
 
             try {
@@ -114,38 +99,23 @@ public class FinishBlockListener implements Listener {
                     boolean was = p.isOp();
                     try { p.setOp(true); p.performCommand(line.substring("op:".length()).trim()); }
                     finally { p.setOp(was); }
-                } else if (lower.startsWith("warp:")) {
-                    String name = line.substring("warp:".length()).trim();
-                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "warp " + name + " " + p.getName());
-                } else if (lower.startsWith("teleport:")) {
-                    String arg = line.substring("teleport:".length()).trim();
-                    if ("world-spawn".equalsIgnoreCase(arg)) {
-                        p.teleport(p.getWorld().getSpawnLocation());
-                    } else {
-                        // format: world:x,y,z
-                        String[] sp = arg.split(":");
-                        if (sp.length == 2) {
-                            String world = sp[0];
-                            String[] xyz = sp[1].split(",");
-                            if (xyz.length == 3) {
-                                org.bukkit.World w = Bukkit.getWorld(world);
-                                if (w != null) {
-                                    double x = Double.parseDouble(xyz[0]);
-                                    double y = Double.parseDouble(xyz[1]);
-                                    double z = Double.parseDouble(xyz[2]);
-                                    p.teleport(new Location(w, x, y, z));
-                                }
-                            }
-                        }
+                } else if (lower.startsWith("tp:")) {
+                    String[] parts = line.substring("tp:".length()).trim().split(",", 4);
+                    if (parts.length >= 4) {
+                        World w = Bukkit.getWorld(parts[0].trim());
+                        double x = Double.parseDouble(parts[1].trim());
+                        double y = Double.parseDouble(parts[2].trim());
+                        double z = Double.parseDouble(parts[3].trim());
+                        if (w != null) p.teleport(new Location(w, x, y, z));
                     }
-                } else if (lower.startsWith("message:")) {
-                    p.sendMessage(line.substring("message:".length()).trim());
+                } else if (lower.startsWith("warp:")) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "warp " + line.substring("warp:".length()).trim() + " " + p.getName());
                 } else if (lower.startsWith("title:")) {
                     String title = line.substring("title:".length()).trim();
-                    p.sendTitle(title, "", 10, 60, 10);
+                    p.sendTitle(TutorialPlugin.color(title), "", 10, 60, 10);
                 } else if (lower.startsWith("subtitle:")) {
                     String sub = line.substring("subtitle:".length()).trim();
-                    p.sendTitle("", sub, 10, 60, 10);
+                    p.sendTitle("", TutorialPlugin.color(sub), 10, 60, 10);
                 } else if (lower.startsWith("sound:")) {
                     String snd = line.substring("sound:".length()).trim().toUpperCase(Locale.ROOT);
                     try {

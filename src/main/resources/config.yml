@@ -1,0 +1,30 @@
+debug: false
+
+tutorial:
+  first-join-enabled: true
+  warp-name: tutorial
+  first-join-commands:
+    - "console: say Welcome {player}!"
+
+trigger:
+  mode: block           # block | radius
+  radius: 1.0           # used when mode=radius
+  require-sneak: false
+  blocks: []            # e.g., [ "world,100,64,200" ]
+
+on-trigger:
+  actions:
+    - "title: &a튜토리얼 완료!"
+    - "subtitle: &7스폰으로 이동합니다"
+    - "sound: UI_TOAST_CHALLENGE_COMPLETE"
+    - "console: spawn {player}"
+
+messages:
+  prefix: "&6[Tutorial]&r "
+  set-start: "&a종료블럭을 현재 발밑 블럭으로 등록했습니다."
+  set-done: "&a등록 완료: &f%world% %x%,%y%,%z%"
+  removed-nearest: "&c가장 가까운 종료블럭 삭제: &f%world% %x%,%y%,%z%"
+  cleared: "&c모든 종료블럭 삭제."
+  list-header: "&e[종료블럭 목록]"
+  list-entry: "&7- &f%world% %x%,%y%,%z%"
+  none: "&7등록된 종료블럭이 없습니다."

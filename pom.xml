@@ -5,7 +5,7 @@
 
   <groupId>com.minkang.tutorial</groupId>
   <artifactId>TutorialWarp</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <name>TutorialWarp</name>
   <description>First-join warp + block trigger to spawn (MC 1.16.5, Java 11)</description>
   <url>https://example.local/</url>

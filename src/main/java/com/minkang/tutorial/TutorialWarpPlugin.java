@@ -87,6 +87,15 @@ public class TutorialWarpPlugin extends JavaPlugin {
                 return new BlockPoint(t[0], Integer.parseInt(t[1]), Integer.parseInt(t[2]), Integer.parseInt(t[3]));
             } catch (Exception e) { return null; }
         }
+        
+        public boolean matches(org.bukkit.Location loc) {
+            if (loc == null || loc.getWorld() == null) return false;
+            if (loc.getWorld().getName().equalsIgnoreCase(world)) {
+                return loc.getBlockX() == x && loc.getBlockY() == y && loc.getBlockZ() == z;
+            }
+            return false;
+        }
+    
         public org.bukkit.Location toLocation() {
             org.bukkit.World w = Bukkit.getWorld(world);
             return (w == null) ? null : new org.bukkit.Location(w, x + 0.5, y, z + 0.5);

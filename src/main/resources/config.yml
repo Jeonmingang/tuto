@@ -15,6 +15,7 @@ trigger:
 on-trigger:
   actions:
     - "title: &a튜토리얼 완료!"
+    - "console: 기본템 {player}"
     - "subtitle: &7스폰으로 이동합니다"
     - "sound: UI_TOAST_CHALLENGE_COMPLETE"
     - "console: spawn {player}"

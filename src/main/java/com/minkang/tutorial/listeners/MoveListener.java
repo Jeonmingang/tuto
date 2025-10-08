@@ -17,51 +17,58 @@ public class MoveListener implements Listener {
 
     @EventHandler
     public void onMove(PlayerMoveEvent e) {
-        if (e.getTo() == null) return;
-        if (e.getFrom().getBlockX() == e.getTo().getBlockX()
-            && e.getFrom().getBlockY() == e.getTo().getBlockY()
-            && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) {
-            return; // same block -> ignore spam
-        }
         Player p = e.getPlayer();
-        if (p.hasPermission("tutorial.bypass")) return;
+        if (e.getFrom().getBlockX() == e.getTo().getBlockX()
+                && e.getFrom().getBlockY() == e.getTo().getBlockY()
+                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
 
-        FileConfiguration c = plugin.getConfig();
-        if (!c.getBoolean("trigger.require-sneak", false) || p.isSneaking()) {
-            String mode = c.getString("trigger.mode", "block");
-            if ("block".equalsIgnoreCase(mode)) {
-                // check block under feet
-                Location under = e.getTo().clone();
-                under.setY(Math.floor(under.getY()) - 1);
-                BlockPoint bp = BlockPoint.of(under);
-                if (plugin.getTriggerBlocks().contains(bp)) {
-                    runActions(p, e.getTo());
+        FileConfiguration cfg = plugin.getConfig();
+
+        // Trigger mode check
+        String mode = cfg.getString("trigger.mode", "block").toLowerCase();
+        boolean shouldTrigger = false;
+
+        if ("block".equals(mode)) {
+            // If player's block matches any configured trigger block, trigger
+            for (BlockPoint bp : plugin.getTriggerBlocks()) {
+                if (bp.matches(e.getTo())) {
+                    shouldTrigger = true;
+                    break;
                 }
-            } else {
-                // radius mode
-                double radius = c.getDouble("trigger.radius", 1.0);
-                for (BlockPoint bp : plugin.getTriggerBlocks()) {
-                    Location center = bp.toLocation();
-                    if (center != null && center.getWorld().equals(e.getTo().getWorld())) {
-                        if (center.distanceSquared(e.getTo()) <= radius * radius) {
-                            runActions(p, e.getTo());
-                            break;
-                        }
-                    }
+            }
+        } else { // radius
+            double radius = cfg.getDouble("trigger.radius", 1.0D);
+            for (BlockPoint bp : plugin.getTriggerBlocks()) {
+                Location loc = bp.toLocation();
+                if (loc != null && loc.getWorld() == e.getTo().getWorld() && loc.distance(e.getTo()) <= radius) {
+                    shouldTrigger = true;
+                    break;
                 }
             }
         }
-    }
 
-    private void runActions(Player p, Location loc) {
-        for (String raw : plugin.getConfig().getStringList("on-trigger.actions")) {
+        if (!shouldTrigger) return;
+
+        // Sneak requirement
+        if (cfg.getBoolean("trigger.require-sneak", false) && !p.isSneaking()) {
+            return;
+        }
+
+        // Perform actions
+        for (String raw : cfg.getStringList("on-trigger.actions")) {
             if (raw == null || raw.trim().isEmpty()) continue;
-            String line = raw.replace("{player}", p.getName())
-                    .replace("{world}", loc.getWorld().getName())
-                    .replace("{x}", Integer.toString(loc.getBlockX()))
-                    .replace("{y}", Integer.toString(loc.getBlockY()))
-                    .replace("{z}", Integer.toString(loc.getBlockZ()));
-            if (line.regionMatches(true, 0, "console:", 0, 8)) {
+            String line = replacePlaceholders(raw, p);
+
+            // Recognize action prefixes similar to FirstJoinListener
+            if (line.regionMatches(true, 0, "title:", 0, 6)) {
+                p.sendTitle(color(line.substring(6).trim()), "", 10, 60, 10);
+            } else if (line.regionMatches(true, 0, "subtitle:", 0, 9)) {
+                p.sendTitle("", color(line.substring(9).trim()), 10, 60, 10);
+            } else if (line.regionMatches(true, 0, "sound:", 0, 6)) {
+                try {
+                    p.playSound(p.getLocation(), Sound.valueOf(line.substring(6).trim().toUpperCase()), 1f, 1f);
+                } catch (IllegalArgumentException ignored) {}
+            } else if (line.regionMatches(true, 0, "console:", 0, 8)) {
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), line.substring(8).trim());
             } else if (line.regionMatches(true, 0, "player:", 0, 7)) {
                 p.performCommand(line.substring(7).trim());
@@ -70,19 +77,23 @@ public class MoveListener implements Listener {
                 try {
                     p.setOp(true);
                     p.performCommand(line.substring(3).trim());
-                } finally { p.setOp(was); }
-            } else if (line.regionMatches(true, 0, "title:", 0, 6)) {
-                p.sendTitle(color(line.substring(6).trim()), "", 10, 60, 10);
-            } else if (line.regionMatches(true, 0, "subtitle:", 0, 9)) {
-                p.sendTitle("", color(line.substring(9).trim()), 10, 60, 10);
-            } else if (line.regionMatches(true, 0, "sound:", 0, 6)) {
-                try {
-                    p.playSound(p.getLocation(), Sound.valueOf(line.substring(6).trim().toUpperCase()), 1f, 1f);
-                } catch (IllegalArgumentException ignored) {}
+                } finally {
+                    p.setOp(was);
+                }
             } else {
+                // Backward compatibility: treat unprefixed lines as console commands.
                 Bukkit.dispatchCommand(Bukkit.getConsoleSender(), line.trim());
             }
         }
+    }
+
+    private String replacePlaceholders(String s, Player p) {
+        Location l = p.getLocation();
+        return s.replace("{player}", p.getName())
+                .replace("{world}", l.getWorld()!=null?l.getWorld().getName():"world")
+                .replace("{x}", Integer.toString(l.getBlockX()))
+                .replace("{y}", Integer.toString(l.getBlockY()))
+                .replace("{z}", Integer.toString(l.getBlockZ()));
     }
 
     private String color(String s) { return s.replace("&", "§"); }

@@ -3,6 +3,7 @@ package com.minkang.tutorial;
 import com.minkang.tutorial.cmd.TutorialCommand;
 import com.minkang.tutorial.listeners.FirstJoinListener;
 import com.minkang.tutorial.listeners.MoveListener;
+import com.minkang.tutorial.store.DataStore;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -19,10 +20,13 @@ public class TutorialWarpPlugin extends JavaPlugin {
     private boolean debug;
     private double radius;
     private boolean requireSneak;
+    private boolean oncePerPlayer;
+    private DataStore store;
 
     @Override
     public void onEnable() {
-        saveDefaultConfig(); // create once
+        saveDefaultConfig();
+        store = new DataStore(getDataFolder());
         reloadLocal();
 
         getServer().getPluginManager().registerEvents(new MoveListener(this), this);
@@ -31,12 +35,18 @@ public class TutorialWarpPlugin extends JavaPlugin {
         info("Enabled v" + getDescription().getVersion() + " with " + blocks.size() + " trigger blocks.");
     }
 
+    @Override
+    public void onDisable() {
+        if (store != null) store.save();
+    }
+
     public void reloadLocal() {
         reloadConfig();
         FileConfiguration cfg = getConfig();
         debug = cfg.getBoolean("debug", false);
         radius = cfg.getDouble("trigger.radius", 1.2);
         requireSneak = cfg.getBoolean("trigger.require-sneak", false);
+        oncePerPlayer = cfg.getBoolean("tutorial.once-per-player", true);
         blocks.clear();
         List<String> list = cfg.getStringList("trigger.blocks");
         for (String s : list) {
@@ -44,6 +54,11 @@ public class TutorialWarpPlugin extends JavaPlugin {
             if (bp != null) blocks.add(bp);
         }
     }
+
+    public boolean isOncePerPlayer() { return oncePerPlayer; }
+    public boolean isCompleted(Player p) { return store != null && store.isCompleted(p.getUniqueId()); }
+    public void setCompleted(Player p, boolean value) { if (store != null) store.setCompleted(p.getUniqueId(), value); }
+    public void resetAll() { if (store != null) store.clearAll(); }
 
     public void addBlock(BlockPoint bp) {
         blocks.add(bp);
@@ -111,6 +126,12 @@ public class TutorialWarpPlugin extends JavaPlugin {
                 t.printStackTrace();
             }
         }
+        // Mark completion if enabled
+        if (isOncePerPlayer()) {
+            setCompleted(p, true);
+            String msg = getConfig().getString("messages.completed-now", "&a튜토리얼을 완료했습니다!");
+            if (msg != null && !msg.isEmpty()) p.sendMessage(prefix() + color(msg));
+        }
     }
 
     public boolean isTriggered(Location to, boolean sneaking) {
@@ -139,7 +160,7 @@ public class TutorialWarpPlugin extends JavaPlugin {
                 .thenComparingInt(b -> b.x).thenComparingInt(b -> b.y).thenComparingInt(b -> b.z))
                 .map(BlockPoint::toString).collect(Collectors.toList());
         getConfig().set("trigger.blocks", serialized);
-        saveConfig(); // **CRITICAL** persist immediately so it survives restarts
+        saveConfig(); // persist immediately
     }
 
     public String prefix() { return color(getConfig().getString("messages.prefix", "&6[Tutorial]&r ")); }

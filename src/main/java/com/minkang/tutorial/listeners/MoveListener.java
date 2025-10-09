@@ -18,7 +18,6 @@ public class MoveListener implements Listener {
 
     @EventHandler
     public void onMove(PlayerMoveEvent e) {
-        // Only fire when changing block coordinates to reduce spam
         if (e.getFrom().getBlockX() == e.getTo().getBlockX()
                 && e.getFrom().getBlockY() == e.getTo().getBlockY()
                 && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
@@ -26,11 +25,16 @@ public class MoveListener implements Listener {
         Player p = e.getPlayer();
         if (p.hasPermission("tutorial.bypass")) return;
 
+        if (plugin.isOncePerPlayer() && plugin.isCompleted(p)) {
+            // 이미 완료자는 스킵
+            return;
+        }
+
         boolean sneaking = p.isSneaking();
         if (plugin.isTriggered(e.getTo(), sneaking)) {
             if (cooldown.add(p.getUniqueId())) {
                 plugin.runOnTriggerActions(p);
-                // small cooldown to avoid multiple triggers while standing on block
+                // 중복발동 방지 2초
                 p.getServer().getScheduler().runTaskLater(plugin, () -> cooldown.remove(p.getUniqueId()), 40L);
             }
         }

@@ -1,9 +1,10 @@
-# TutorialWarp v1.0.2
+# TutorialWarp v1.1.0
 debug: false
 
 tutorial:
   first-join-enabled: true
   warp-name: tutorial
+  once-per-player: true     # true면 1회만 발동, 이후 재진입해도 미발동
   first-join-commands:
     - "console: say 환영합니다 {player}!"
 trigger:
@@ -11,7 +12,7 @@ trigger:
   radius: 1.2
   require-sneak: false
   blocks:
-    # 예시: 각 줄은 world,x,y,z
+    # 예시
     # - "spawn,-67,6,-338"
 
 on-trigger:
@@ -31,3 +32,9 @@ messages:
   list-header: "&e[종료블럭 목록]"
   list-entry: "&7- &f%world% %x%,%y%,%z%"
   none: "&7등록된 종료블럭이 없습니다."
+  already-completed: "&7이미 튜토리얼을 완료했습니다."
+  completed-now: "&a튜토리얼을 완료했습니다!"
+  reset-done: "&a{player}의 튜토리얼 상태를 초기화했습니다."
+  resetall-done: "&c모든 플레이어의 튜토리얼 상태를 초기화했습니다."
+  status-completed: "&a{player}: 완료"
+  status-not-completed: "&e{player}: 미완료"

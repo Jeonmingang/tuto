@@ -1,5 +1,5 @@
 name: TutorialWarp
-version: 1.0.2
+version: 1.1.0
 main: com.minkang.tutorial.TutorialWarpPlugin
 api-version: 1.16
 authors: [ "minkang" ]
@@ -8,7 +8,7 @@ commands:
     description: Tutorial admin commands
     aliases: [ "튜토리얼" ]
     permission: tutorial.admin
-    usage: "/tutorial sethere|remove|list|clear|reload|test"
+    usage: "/tutorial sethere|remove|list|clear|reload|test|reset <player|*>|status <player>|complete <player>"
 permissions:
   tutorial.admin:
     default: op

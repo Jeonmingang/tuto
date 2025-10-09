@@ -145,11 +145,19 @@ public class TutorialWarpPlugin extends JavaPlugin {
             }
             return false;
         }
-        // default block mode: match block coordinates
+        // default block mode: match block under player's feet
         int bx = to.getBlockX(), by = to.getBlockY(), bz = to.getBlockZ();
+        // In Minecraft, the player's location block coords are usually the AIR block they occupy;
+        // the ground block under feet is Y-1. We check both for robustness.
+        int fx = bx, fy = by - 1, fz = bz;
         String wname = to.getWorld()!=null ? to.getWorld().getName() : "world";
         for (BlockPoint bp : blocks) {
-            if (bp.x == bx && bp.y == by && bp.z == bz && Objects.equals(bp.world, wname)) return true;
+            if (Objects.equals(bp.world, wname)) {
+                if ((bp.x == bx && bp.y == by && bp.z == bz) ||
+                    (bp.x == fx && bp.y == fy && bp.z == fz)) {
+                    return true;
+                }
+            }
         }
         return false;
     }

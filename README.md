@@ -1,19 +1,26 @@
-# TutorialFinishBlock 1.3.0 (Java 11 / 1.16.5)
+# TutorialWarp (fixed)
+- 블럭을 `sethere`로 등록하면 즉시 `config.yml`에 저장되고, 서버 재시작 후에도 유지됩니다.
+- `trigger.mode` 가 `block`이면 해당 좌표의 블럭을 밟을 때 발동, `radius`이면 반경(블럭 단위) 안에 들어올 때 발동합니다.
+- `trigger.require-sneak` 가 true면 웅크린 상태에서만 발동합니다.
+- `on-trigger.actions` 에서 `title:`, `subtitle:`, `sound:`, `console:`, `player:`, `op:` 을 지원합니다.
+- 쿨다운 2초(40틱)로 중복 발동 방지.
 
-## 핵심 기능
-- 첫 접속시 튜토리얼 워프로 이동 또는 커맨드 실행
-- `/튜토리얼 종료블럭` 후 블럭 우클릭으로 종료블럭 등록
-- 플레이어가 종료블럭(발밑 블럭) 밟으면 설정된 액션 실행
-- `radius` 모드 지원 (블럭 중심으로 반경 N m)
-- 완료 상태/종료블럭 `data.yml`/`config.yml`에 **영구 저장**
-- `/튜토리얼 리로드`로 config/data 즉시 반영
+## 명령어
+`/tutorial sethere|remove|list|clear|reload|test`
+
+- `sethere`: 현재 위치의 발밑 블럭 좌표(world,x,y,z)를 트리거로 등록 (즉시 저장)
+- `remove`: 가장 가까운 트리거 블럭 1개 삭제 (즉시 저장)
+- `list`: 등록된 블럭 목록 출력
+- `clear`: 모두 삭제 (즉시 저장)
+- `reload`: 설정 리로드
+- `test`: 현재 플레이어에게 `on-trigger.actions` 실행
+
+## 퍼미션
+- `tutorial.admin` (OP 기본)
+- `tutorial.bypass` (OP 기본, 발동 무시)
 
 ## 빌드
-```bash
-mvn -q -DskipTests clean package
-# target/TutorialFinishBlock-1.3.0.jar
-```
+Java 8, Spigot/Paper 1.16.5 API 기준.
+`mvn -B -DskipTests clean package`
 
-## 설치 팁
-- EssentialsX 사용 시 `tutorial.on-first-join.warp: tutorial` 로 설정
-- 종료 액션은 `finish.actions` 목록에서 순서대로 실행됩니다.
+생성물: `target/TutorialWarp-1.0.2.jar`

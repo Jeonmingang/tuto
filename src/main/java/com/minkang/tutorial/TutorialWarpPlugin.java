@@ -88,6 +88,7 @@ public class TutorialWarpPlugin extends JavaPlugin {
     public boolean isRequireSneak() { return requireSneak; }
 
     public void runOnTriggerActions(Player p) {
+        if (debug) info("Trigger matched for " + p.getName());
         List<String> actions = getConfig().getStringList("on-trigger.actions");
         if (actions == null) return;
         for (String raw : actions) {
@@ -135,6 +136,7 @@ public class TutorialWarpPlugin extends JavaPlugin {
     }
 
     public boolean isTriggered(Location to, boolean sneaking) {
+        if (to == null) return false;
         if (requireSneak && !sneaking) return false;
         String mode = getConfig().getString("trigger.mode", "block").toLowerCase(Locale.ROOT);
         if ("radius".equals(mode)) {

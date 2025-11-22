@@ -12,10 +12,13 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Fires tutorial completion when a player enters any configured trigger.
- * Cooldowns per player prevent rapid re-firing (40 ticks).
+ * 플레이어 이동을 감지하여 튜토리얼 종료 블럭 / 반경 진입 시
+ * TutorialWarpPlugin#handleTrigger 를 호출한다.
+ *
+ * 플레이어별로 짧은 쿨타임을 두어 중복 호출을 방지한다.
  */
 public class MoveListener implements Listener {
+
     private final TutorialWarpPlugin plugin;
     private final Set<UUID> cooldown = new HashSet<>();
 
@@ -23,26 +26,23 @@ public class MoveListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent e) {
-        if (e.getTo() == null) return;
-        Player p = e.getPlayer();
-
-        // bypass permission skips the tutorial trigger entirely
-        if (p.hasPermission("tutorial.bypass")) return;
-
-        // If tutorial is once-per-player and already completed, skip
-        if (plugin.isOncePerPlayer() && plugin.isCompleted(p)) {
+        if (e.getFrom().getBlockX() == e.getTo().getBlockX()
+                && e.getFrom().getBlockY() == e.getTo().getBlockY()
+                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) {
             return;
         }
 
+        Player p = e.getPlayer();
         boolean sneaking = p.isSneaking();
+
         if (plugin.isTriggered(e.getTo(), sneaking)) {
             if (cooldown.add(p.getUniqueId())) {
                 try {
-                    plugin.runOnTriggerActions(p);
+                    plugin.handleTrigger(p);
                 } finally {
-                    // remove cooldown after 2 seconds
+                    // 2초 후 쿨타임 제거
                     p.getServer().getScheduler().runTaskLater(plugin, () -> cooldown.remove(p.getUniqueId()), 40L);
                 }
             }

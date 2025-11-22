@@ -1,4 +1,4 @@
-# TutorialWarp 1.1.0 (once-per-player + reset + test)
+# TutorialWarp 1.21.1 (once-per-player + reset + test)
 - 블럭 등록은 즉시 `config.yml`에 저장 → 재시작 후에도 유지
 - **1회만 발동**(once-per-player) 지원 + **리셋/상태/강제완료** 명령어 추가
 - 트리거 모드: `block`(좌표 일치) / `radius`(반경)
@@ -22,5 +22,5 @@
 - `complete <player>` : 대상 플레이어에게 완료 액션 강제 실행
 
 ## 빌드
-Java 8 + Spigot/Paper 1.16.5.  
-`mvn -B -DskipTests clean package` → `target/TutorialWarp-1.1.0.jar`
+Java 11 + Spigot/Paper 1.21.1.  
+`mvn -B -DskipTests clean package` → `target/TutorialWarp-1.21.1.jar`

@@ -1,40 +1,74 @@
-# TutorialWarp v1.1.0
+# TutorialWarp 고급 설정
 debug: false
 
 tutorial:
   first-join-enabled: true
-  warp-name: tutorial
+  warp-name: tutorial   # 에센셜 /warp <이름> 과 동일. 첫 접속 시 이 워프로 이동.
   once-per-player: true     # true면 1회만 발동, 이후 재진입해도 미발동
   first-join-commands:
+    - "player: 기본템"
     - "console: say 환영합니다 {player}!"
+
 trigger:
   mode: block   # block | radius
   radius: 1.2
   require-sneak: false
-  blocks:
-    # 예시
-    # - "spawn,-67,6,-338"
+  blocks: []
+
+# 튜토리얼 단계/보스바/타이틀 설정
+stages:
+  # 기본 타이틀 포맷
+  default:
+    title: "&a[튜토리얼 {stage}단계]"
+    subtitle: "&7튜토리얼을 진행해주세요."
+  # 단계별로 별도 문구/액션을 지정할 수 있습니다.
+  titles:
+    "1":
+      title: "&a[튜토리얼 1단계]"
+      subtitle: "&7기본 조작과 규칙을 안내합니다."
+      actions:
+        # 예시: console/player/op: 로 시작
+        # - "console: give {player} bread 5"
+    "2":
+      title: "&a[튜토리얼 2단계]"
+      subtitle: "&7마을/경제 시스템을 간단히 보여줍니다."
+    "3":
+      title: "&a[튜토리얼 3단계]"
+      subtitle: "&7Pixelmon 관련 기본을 체험합니다."
+  bossbar-title: "&e튜토리얼 진행도: &f{current}&7/&f{total}"
+
+# 튜토리얼 분기(모드)
+paths:
+  full:
+    name: "풀 튜토리얼"
+    # stages: [1,2,3]  # 1번, 2번, 3번 종료블럭을 순서대로 진행
+  quick:
+    name: "요약 튜토리얼"
+    # 예: stages: [1,3]  # 1번, 3번 종료블럭만 진행
+  system:
+    name: "시스템 튜토리얼"
+    # 예: stages: [2,3]  # 시스템 위주 단계만 진행
 
 on-trigger:
+  # 튜토리얼 마지막 단계(전체 완료) 시 실행할 액션
   actions:
-    - "title: &a튜토리얼 완료!"
-    - "subtitle: &7스폰으로 이동합니다"
-    - "sound: UI_TOAST_CHALLENGE_COMPLETE"
-    - "console: 기본템 {player}"
-    - "console: spawn {player}"
+    - "console: warp spawn {player}"
+    - "console: say {player} 님이 튜토리얼을 완료했습니다!"
 
 messages:
-  prefix: "&6[Tutorial]&r "
+  prefix: "&6[튜토리얼]&r "
   set-start: "&a종료블럭을 현재 발밑 블럭으로 등록했습니다."
   set-done: "&a등록 완료: &f%world% %x%,%y%,%z%"
   removed-nearest: "&c가장 가까운 종료블럭 삭제: &f%world% %x%,%y%,%z%"
-  cleared: "&c모든 종료블럭 삭제."
+  cleared: "&c모든 종료블럭을 삭제했습니다."
   list-header: "&e[종료블럭 목록]"
   list-entry: "&7- &f%world% %x%,%y%,%z%"
   none: "&7등록된 종료블럭이 없습니다."
   already-completed: "&7이미 튜토리얼을 완료했습니다."
+  show-already-completed: true
   completed-now: "&a튜토리얼을 완료했습니다!"
   reset-done: "&a{player}의 튜토리얼 상태를 초기화했습니다."
   resetall-done: "&c모든 플레이어의 튜토리얼 상태를 초기화했습니다."
   status-completed: "&a{player}: 완료"
   status-not-completed: "&e{player}: 미완료"
+  mode-set: "&a튜토리얼 모드가 &f{mode}&a(으)로 설정되었습니다."
